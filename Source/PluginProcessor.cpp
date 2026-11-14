@@ -2,7 +2,8 @@
 
 GuitarToMidiProcessor::GuitarToMidiProcessor()
     : AudioProcessor (BusesProperties()
-                          .withInput  ("Input",  juce::AudioChannelSet::mono(),   true)
+                          .withInput  ("Input",     juce::AudioChannelSet::mono(), false)
+                          .withInput  ("Sidechain", juce::AudioChannelSet::mono(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "STATE", createLayout())
 {
@@ -56,11 +57,13 @@ void GuitarToMidiProcessor::prepareToPlay (double sampleRate, int)
 bool GuitarToMidiProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 {
     const auto& out = l.getMainOutputChannelSet();
-    const auto& in  = l.getMainInputChannelSet();
     if (out != juce::AudioChannelSet::mono() && out != juce::AudioChannelSet::stereo())
         return false;
-    return in == juce::AudioChannelSet::mono() || in == juce::AudioChannelSet::stereo()
-           || in == juce::AudioChannelSet::disabled();
+    for (const auto& in : l.inputBuses)
+        if (in != juce::AudioChannelSet::mono() && in != juce::AudioChannelSet::stereo()
+            && in != juce::AudioChannelSet::disabled())
+            return false;
+    return true;
 }
 
 void GuitarToMidiProcessor::noteOff (int offset, juce::MidiBuffer& midi)
@@ -164,7 +167,9 @@ void GuitarToMidiProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     pChannel   = (int) channelP->load();
 
     const int n = buffer.getNumSamples();
-    auto in = getBusBuffer (buffer, true, 0);
+    // guitar comes in on the Sidechain bus (what Cubase exposes for instruments); fall back to main input
+    const int inBus = getBus (true, 1) != nullptr && getBus (true, 1)->isEnabled() ? 1 : 0;
+    auto in = getBusBuffer (buffer, true, inBus);
     const int inCh = in.getNumChannels();
 
     if (inCh > 0)
