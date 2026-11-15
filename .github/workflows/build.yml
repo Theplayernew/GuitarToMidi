@@ -60,7 +60,7 @@ jobs:
       - name: Set tag
         run: echo "TAG=$(date -u +%Y-%m-%d_%H%M)" >> "$GITHUB_ENV"
 
-      - uses: softprops/action-gh-release@main
+      - uses: softprops/action-gh-release@master
         with:
           tag_name: ${{ env.TAG }}
           target_commitish: ${{ github.sha }}
